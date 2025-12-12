@@ -7,6 +7,7 @@ import matplotlib
 
 matplotlib.use('TkAgg')
 import numpy as np
+from exap_api import ExapApi
 
 
 class GraphApp:
@@ -283,8 +284,8 @@ class GraphApp:
         def on_ok():
             try:
                 weight = float(weight_var.get())
-                if weight <= 0:
-                    raise ValueError
+                # if weight <= 0:
+                #     raise ValueError
                 result["weight"] = weight
                 dialog.destroy()
             except ValueError:
@@ -1171,18 +1172,12 @@ class GraphApp:
         canvas.draw()
 
     def dinic_algorithm(self):
-        self.print_output("\n" + "=" * 60)
-        self.print_output("АЛГОРИТМ ДИНИЦА: Максимальный поток")
-        self.print_output("=" * 60)
-        self.print_output("Реализуйте этот метод в своей части работы!")
-        self.print_output("Для работы алгоритма нужны источник и сток.")
+        api = ExapApi(self.root, self.graph)
+        api.dinic()
 
     def johnson_algorithm(self):
-        self.print_output("\n" + "=" * 60)
-        self.print_output("АЛГОРИТМ ДЖОНСОНА: Поиск всех циклов")
-        self.print_output("=" * 60)
-        self.print_output("Реализуйте этот метод в своей части работы!")
-        self.print_output("Алгоритм находит все элементарные циклы в графе.")
+        api = ExapApi(self.root, self.graph)
+        api.johnson()
 
 
 def main():
