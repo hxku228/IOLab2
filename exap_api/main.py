@@ -104,7 +104,7 @@ class ExapApi:
         self.table_container.pack(fill=tk.BOTH, expand=True, pady=10, padx=5)
 
         self.graph_container = tk.Frame(self.result_right_frame, bg='lightgray')
-        self.graph_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.graph_container.pack(fill=tk.X, expand=True, padx=5, pady=5)
 
         # Показываем первый шаг
         self.update_result_step()
@@ -130,9 +130,9 @@ class ExapApi:
         """Создает граф для шага в указанном parent"""
         # if self.fig:
         #     plt.close(self.fig)
-        self.fig, ax = plt.subplots(figsize=(8, 8))
+        self.fig, ax = plt.subplots(figsize=(10, 10))
         canvas = FigureCanvasTkAgg(self.fig, master=parent)
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas.get_tk_widget().pack(fill=tk.TOP, expand=True)
 
         self.draw_graph(ax, data, title=title)
 

@@ -476,6 +476,10 @@ class GraphApp:
 
         ax.set_title(title, fontsize=12, fontweight='bold')
         ax.set_axis_off()
+        ax.set_xlim(-12, 12)
+        ax.set_ylim(-12, 12)
+        ax.set_aspect('equal')
+        ax.grid(True, linestyle='--', alpha=0.3)
 
     def draw_graph(self):
         self.ax.clear()
@@ -485,7 +489,7 @@ class GraphApp:
         self.edge_labels = {}
 
         if not self.graph.nodes():
-            self.ax.text(0.5, 0.5, "Граф пуст\nДобавьте вершины и рёбра", ha='center', va='center', fontsize=12)
+            self.ax.text(0.5, 0.5, "Граф пуст", ha='center', va='center', fontsize=12)
             self.ax.set_xlim(-10, 10)
             self.ax.set_ylim(-10, 10)
             self.ax.set_axis_off()
@@ -545,15 +549,15 @@ class GraphApp:
 
         # Заголовок
         if self.mode == "edge":
-            title = "Режим добавления рёбер: кликните на начальную вершину"
+            title = "Режим добавления рёбер: клик на нач вершину"
             if self.edge_start:
-                title = f"Режим добавления рёбер: начальная вершина '{self.edge_start}', кликните на конечную"
+                title = f"Режим добавления рёбер: нач вершина '{self.edge_start}', клик на конечную"
         elif self.mode == "delete_edge":
-            title = "Режим удаления рёбер: кликните на ребро или две вершины"
+            title = "Режим удаления рёбер"
             if self.edge_start:
-                title = f"Выбрана вершина '{self.edge_start}'. Кликните на вторую."
+                title = f"Выбрана вершина '{self.edge_start}'. Клик на вторую."
         else:
-            title = "Режим перетаскивания: перетаскивайте вершины мышкой"
+            title = "Режим перетаскивания"
         self.ax.set_title(title, fontsize=14, fontweight='bold')
 
         self.ax.set_axis_off()
@@ -684,8 +688,9 @@ class GraphApp:
 
         canvas = FigureCanvasTkAgg(fig, step_window)
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        plt.tight_layout()
+        # plt.tight_layout()
         canvas.draw()
+
 
     def visualize_scc(self, scc_components):
         if not self.graph.nodes():
