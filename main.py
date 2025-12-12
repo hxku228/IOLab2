@@ -238,22 +238,42 @@ class GraphApp:
                     return
 
     def ask_edge_weight(self, edge_end):
+        """
+        Запрашивает вес ребра у пользователя.
+        Если вершины имеют позиции, предлагает геометрическое расстояние как значение по умолчанию.
+        """
+        # Вычисляем геометрическое расстояние, если позиции известны
+        default_weight = 1.0
+        if self.pos and self.edge_start in self.pos and edge_end in self.pos:
+            x1, y1 = self.pos[self.edge_start]
+            x2, y2 = self.pos[edge_end]
+            dist = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            default_weight = round(dist, 2)  # округляем до 2 знаков
+
         dialog = tk.Toplevel(self.root)
         dialog.title("Вес ребра")
-        dialog.geometry("350x180")
+        dialog.geometry("350x220")
         dialog.transient(self.root)
         dialog.grab_set()
+
+        # Центрирование
         dialog.update_idletasks()
         x = self.root.winfo_x() + (self.root.winfo_width() - dialog.winfo_width()) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - dialog.winfo_height()) // 2
         dialog.geometry(f"+{x}+{y}")
 
         label = ttk.Label(dialog, text=f"Введите вес ребра {self.edge_start} → {edge_end}:", font=("Arial", 11))
-        label.pack(pady=20)
+        label.pack(pady=10)
 
-        weight_var = tk.StringVar(value="1.0")
+        # Подсказка о геометрическом расстоянии
+        if default_weight != 1.0:
+            hint = ttk.Label(dialog, text=f"Геометрическое расстояние: {default_weight:.2f}",
+                             font=("Arial", 9, "italic"), foreground="gray")
+            hint.pack()
+
+        weight_var = tk.StringVar(value=f"{default_weight:.2f}")
         entry_frame = ttk.Frame(dialog)
-        entry_frame.pack(pady=10)
+        entry_frame.pack(pady=5)
         entry = ttk.Entry(entry_frame, textvariable=weight_var, width=15, font=("Arial", 11))
         entry.pack()
         entry.focus_set()
@@ -410,24 +430,31 @@ class GraphApp:
             ax.set_axis_off()
             return
 
-        # Рёбра
+        is_directed = graph.is_directed()
+
+        #ребра
         for u, v, data in graph.edges(data=True):
             x1, y1 = pos[u]
             x2, y2 = pos[v]
-            dx = x2 - x1
-            dy = y2 - y1
+            dx, dy = x2 - x1, y2 - y1
             length = np.hypot(dx, dy)
-            shrink = 1.1
+            shrink = 1.1 if length > 0 else 0
+
             if length > 0:
-                x2_adj = x1 + dx * (length - shrink) / length
-                y2_adj = y1 + dy * (length - shrink) / length
+                if is_directed:
+                    x2_adj = x1 + dx * (length - shrink) / length
+                    y2_adj = y1 + dy * (length - shrink) / length
+                    ax.annotate("", xy=(x2_adj, y2_adj), xytext=(x1, y1),
+                                arrowprops=dict(arrowstyle="->", color='gray', linewidth=1.5),
+                                annotation_clip=False)
+                else:
+                    ax.plot([x1, x2], [y1, y2], color='gray', linewidth=1.5, alpha=0.8)
             else:
-                x2_adj, y2_adj = x2, y2
+                #петля для прикола
+                circle = plt.Circle((x1, y1), radius=1.5, color='gray', fill=False, linewidth=1.5)
+                ax.add_patch(circle)
 
-            ax.annotate("", xy=(x2_adj, y2_adj), xytext=(x1, y1),
-                        arrowprops=dict(arrowstyle="->", color='gray', linewidth=1.5),
-                        annotation_clip=False)
-
+            # Подпись веса
             weight = data.get('weight', 1.0)
             mid_x = (x1 + x2) / 2
             mid_y = (y1 + y2) / 2
@@ -437,22 +464,17 @@ class GraphApp:
                     fontsize=10, ha='center', va='center',
                     bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="gray", alpha=0.7))
 
-        # Вершины
+        #вершины
         for node, (x, y) in pos.items():
             circle = plt.Circle((x, y), radius=1.1, color='lightblue', alpha=0.8, ec='black', linewidth=2)
             ax.add_patch(circle)
             ax.text(x, y, node, fontsize=9, fontweight='bold', ha='center', va='center')
-            # Показываем порядок завершения, если задан
             if show_order and node in show_order:
                 order_num = show_order[node]
                 ax.text(x, y + 1.3, f"{order_num}", fontsize=11, color='red', weight='bold')
 
         ax.set_title(title, fontsize=12, fontweight='bold')
         ax.set_axis_off()
-        ax.set_xlim(-12, 12)
-        ax.set_ylim(-12, 12)
-        ax.set_aspect('equal')
-        ax.grid(True, linestyle='--', alpha=0.3)
 
     def draw_graph(self):
         self.ax.clear()
@@ -626,6 +648,7 @@ class GraphApp:
         order_map = {node: i + 1 for i, node in enumerate(reversed(order))}
         self.visualize_scc_step_by_step(scc_components, order_map, transposed)
 
+
     def visualize_scc_step_by_step(self, scc_components, order_map, transposed_graph):
         step_window = tk.Toplevel(self.root)
         step_window.title("Алгоритм Косарайю — пошаговая визуализация")
@@ -727,19 +750,425 @@ class GraphApp:
         self.figure.tight_layout()
         self.canvas.draw()
 
+    def visualize_mst_side_by_side(self, mst_edges, order_map):
+        if not self.graph.nodes():
+            return
+
+        pos = {node: self.pos[node] for node in self.pos if node in self.graph}
+
+        step_window = tk.Toplevel(self.root)
+        step_window.title("Алгоритм Прима — визуализация")
+        step_window.geometry("1500x700")
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6), dpi=100)
+
+        #Левая панель: исходный граф
+        self._draw_graph_on_ax(ax1, self.graph, pos, "Исходный граф")
+
+        #Правая панель: MST (неориентированный)
+        mst_graph = nx.Graph()
+        mst_graph.add_nodes_from(self.graph.nodes())
+        for u, v, w in mst_edges:
+            mst_graph.add_edge(u, v, weight=w)
+
+        self._draw_graph_on_ax(ax2, mst_graph, pos, "Минимальное остовное дерево (MST)")
+
+        #порядок добавления
+        for node, (x, y) in pos.items():
+            if node in order_map:
+                order_num = order_map[node]
+                ax2.text(x, y + 1.3, f"{order_num}", fontsize=12, color='red', weight='bold',
+                         ha='center', va='center')
+
+        for ax in (ax1, ax2):
+            ax.set_xlim(-12, 12)
+            ax.set_ylim(-12, 12)
+            ax.set_aspect('equal')
+            ax.grid(True, linestyle='--', alpha=0.3)
+
+        plt.tight_layout()
+        canvas = FigureCanvasTkAgg(fig, step_window)
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas.draw()
+
     def prim_algorithm(self):
         self.print_output("\n" + "=" * 60)
         self.print_output("АЛГОРИТМ ПРИМА: Минимальное остовное дерево")
         self.print_output("=" * 60)
-        self.print_output("Реализуйте этот метод в своей части работы!")
-        self.print_output("Для работы алгоритма нужен неориентированный взвешенный граф.")
+
+        if not self.graph.nodes():
+            self.print_output("Граф пуст!")
+            return
+
+        nodes = list(self.graph.nodes())
+        n = len(nodes)
+        if n == 1:
+            self.print_output("Граф состоит из одной вершины. MST не содержит рёбер.")
+            return
+
+        # Построение неориентированной весовой матрицы
+        node_to_idx = {node: i for i, node in enumerate(nodes)}
+        idx_to_node = {i: node for node, i in node_to_idx.items()}
+        INF = float('inf')
+        adj_matrix = [[INF] * n for _ in range(n)]
+
+        for u, v, data in self.graph.edges(data=True):
+            i, j = node_to_idx[u], node_to_idx[v]
+            weight = data.get('weight', 1.0)
+            if weight < adj_matrix[i][j]:
+                adj_matrix[i][j] = weight
+                adj_matrix[j][i] = weight  # симметрия для неориентированного графа
+
+        # Проверка связности
+        visited = set()
+        stack = [nodes[0]]
+        visited.add(nodes[0])
+        while stack:
+            u = stack.pop()
+            u_idx = node_to_idx[u]
+            for v_idx in range(n):
+                if adj_matrix[u_idx][v_idx] != INF and idx_to_node[v_idx] not in visited:
+                    visited.add(idx_to_node[v_idx])
+                    stack.append(idx_to_node[v_idx])
+
+        if len(visited) != n:
+            self.print_output("Ошибка: граф несвязный! Алгоритм Прима применим только к связным графам.")
+            return
+
+        self.print_output("\n→ Граф корректен: связный, неориентированный, взвешенный.")
+        self.print_output(f"Вершины: {sorted(nodes)}")
+        self.print_output(f"Количество вершин: {n}")
+
+        #Инициализация
+        key = [INF] * n  # key[i] — минимальный вес ребра для подключения вершины i
+        frt = [-1] * n  # frt[i] — предок вершины i в MST (-1 = нет предка)
+        in_mst = [False] * n  # включена ли вершина в дерево
+
+        # Начинаем с первой вершины
+        start_idx = 0
+        key[start_idx] = 0
+        frt[start_idx] = -1
+
+        self.print_output(f"\n→ Инициализация:")
+        self.print_output(f"  Начальная вершина: {nodes[start_idx]}")
+        self.print_output(f"  key = {[f'{x:.1f}' if x != INF else '∞' for x in key]}")
+        self.print_output(
+            f"  ftr = {[(idx_to_node[i] if frt[i] != -1 else '—') if i < len(frt) else '?' for i in range(n)]}")
+        self.print_output(f"  in_mst = {in_mst}")
+
+        total_weight = 0
+        mst_edges = []
+        order_of_addition = {}
+
+        #Основной цикл
+        for step in range(n):
+            self.print_output(f"\n→ Шаг {step + 1}/{n}:")
+
+            # Найти u из Q с минимальным key[u]
+            u = -1
+            min_key = INF
+            for v in range(n):
+                if not in_mst[v] and key[v] < min_key:
+                    min_key = key[v]
+                    u = v
+
+            if u == -1:
+                self.print_output("Нет доступных вершин — остановка.")
+                break
+
+            # добавляем u в MST
+            in_mst[u] = True
+            total_weight += key[u]
+            current_vertex = idx_to_node[u]
+            order_of_addition[current_vertex] = step + 1
+
+            if frt[u] != -1:
+                parent_vertex = idx_to_node[frt[u]]
+                weight = adj_matrix[frt[u]][u]
+                mst_edges.append((parent_vertex, current_vertex, weight))
+                self.print_output(f"  Выбрана вершина: {current_vertex}")
+                self.print_output(f"  Добавлено ребро: {parent_vertex} — {current_vertex} (вес = {weight})")
+            else:
+                self.print_output(f"  Выбрана начальная вершина: {current_vertex}")
+
+            # Обновление ключей соседей
+            updated = []
+            for v in range(n):
+                if adj_matrix[u][v] != INF and not in_mst[v]:
+                    old_key = key[v]
+                    if adj_matrix[u][v] < key[v]:
+                        key[v] = adj_matrix[u][v]
+                        frt[v] = u
+                        updated.append((idx_to_node[v], old_key, key[v]))
+
+            # Вывод состояния после обновления
+            self.print_output(f"  Текущее дерево включает: {[idx_to_node[i] for i in range(n) if in_mst[i]]}")
+            self.print_output(f"  key = {[f'{x:.1f}' if x != INF else '∞' for x in key]}")
+            self.print_output(
+                f"  frt = {[(idx_to_node[frt[i]] if frt[i] != -1 else '—') if in_mst[i] or key[i] != INF else '—' for i in range(n)]}")
+            if updated:
+                self.print_output("  Обновлены ключи:")
+                for v_name, old_k, new_k in updated:
+                    old_str = f"{old_k:.1f}" if old_k != INF else "∞"
+                    self.print_output(f"    {v_name}: {old_str} → {new_k:.1f}")
+            else:
+                self.print_output("  Нет обновлений ключей.")
+
+        #
+        self.print_output(f"\n" + "-" * 50)
+        self.print_output("РЕЗУЛЬТАТ АЛГОРИТМА ПРИМА")
+        self.print_output("-" * 50)
+        self.print_output(f"Минимальное остовное дерево содержит {len(mst_edges)} рёбер:")
+        for i, (u, v, w) in enumerate(mst_edges, 1):
+            self.print_output(f"  {i}. {u} — {v} (вес = {w})")
+        self.print_output(f"\nОбщая стоимость MST: {total_weight:.2f}")
+
+        self.visualize_mst_side_by_side(mst_edges, order_of_addition)
 
     def a_star_algorithm(self):
         self.print_output("\n" + "=" * 60)
-        self.print_output("АЛГОРИТМ A*: Кратчайший путь")
+        self.print_output("АЛГОРИТМ A*: Поиск кратчайшего пути")
         self.print_output("=" * 60)
-        self.print_output("Реализуйте этот метод в своей части работы!")
-        self.print_output("Для работы алгоритма нужны начальная и конечная вершины.")
+
+        if not self.graph.nodes():
+            self.print_output("Граф пуст!")
+            return
+
+        nodes = list(self.graph.nodes())
+        if len(nodes) == 1:
+            self.print_output("Граф содержит только одну вершину.")
+            return
+
+        # Обеспечиваем наличие позиций
+        if self.pos is None:
+            self.pos = {}
+        for node in nodes:
+            if node not in self.pos:
+                self.pos[node] = (np.random.uniform(-10, 10), np.random.uniform(-10, 10))
+
+        # Выбор вершин
+        start_node = self.select_vertex_dialog("Выберите стартовую вершину")
+        if start_node is None:
+            return
+        if start_node not in self.graph:
+            self.print_output(f"Ошибка: вершина '{start_node}' не существует.")
+            return
+
+        goal_node = self.select_vertex_dialog("Выберите целевую вершину")
+        if goal_node is None:
+            return
+        if goal_node not in self.graph:
+            self.print_output(f"Ошибка: вершина '{goal_node}' не существует.")
+            return
+
+        if start_node == goal_node:
+            self.print_output(f"\nСтарт и цель совпадают: {start_node}")
+            self.visualize_a_star_path([start_node], start_node, goal_node, 0.0)
+            return
+
+        # Проверка на отрицательные веса
+        has_negative = any(data.get('weight', 1.0) < 0 for _, _, data in self.graph.edges(data=True))
+        if has_negative:
+            self.print_output("Внимание: в графе есть рёбра с отрицательными весами.")
+            self.print_output("   A* может не найти оптимальный путь!")
+
+        # Эвристика
+        def heuristic(node):
+            x1, y1 = self.pos[node]
+            x2, y2 = self.pos[goal_node]
+            return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
+        # Инициализация
+        g_score = {node: float('inf') for node in nodes}
+        f_score = {node: float('inf') for node in nodes}
+        parent = {node: None for node in nodes}
+
+        g_score[start_node] = 0
+        f_score[start_node] = heuristic(start_node)
+
+        open_set = set([start_node])
+        closed_set = set()
+
+        self.print_output(f"\n→ Поиск кратчайшего пути от '{start_node}' до '{goal_node}'")
+        self.print_output(f"Эвристика h(v) = евклидово расстояние до '{goal_node}'")
+        self.print_output("\n" + "-" * 80)
+        self.print_output(
+            f"{'Шаг':<4} | {'Текущая':<10} | {'g(текущей)':<10} | {'f(текущей)':<10} | {'Открытое множество (вершина: f)':<40}")
+        self.print_output("-" * 80)
+
+        step = 0
+        found = False
+
+        while open_set:
+            # Выбираем вершину с минимальным f_score
+            current = min(open_set, key=lambda node: f_score[node])
+            open_set.remove(current)
+            closed_set.add(current)
+
+            step += 1
+            current_f = f_score[current]
+            current_g = g_score[current]
+
+            open_str = ", ".join([f"{n}: {f_score[n]:.2f}" for n in sorted(open_set, key=lambda x: f_score[x])])
+            if not open_str:
+                open_str = "∅"
+
+            self.print_output(f"{step:<4} | {current:<10} | {current_g:<10.2f} | {current_f:<10.2f} | {open_str}")
+
+            if current == goal_node:
+                found = True
+                break
+
+            for neighbor in self.graph.successors(current):
+                if neighbor in closed_set:
+                    continue
+
+                weight = self.graph[current][neighbor].get('weight', 1.0)
+                tentative_g = g_score[current] + weight
+
+                if tentative_g < g_score[neighbor]:
+                    parent[neighbor] = current
+                    g_score[neighbor] = tentative_g
+                    f_score[neighbor] = tentative_g + heuristic(neighbor)
+                    open_set.add(neighbor)
+
+                    self.print_output(
+                        f"      → Обновление {neighbor}: g={tentative_g:.2f}, f={f_score[neighbor]:.2f} (через {current})")
+
+        if found:
+            path = []
+            current = goal_node
+            while current is not None:
+                path.append(current)
+                current = parent[current]
+            path.reverse()
+
+            total_cost = g_score[goal_node]
+
+            self.print_output("\n" + "-" * 50)
+            self.print_output("РЕЗУЛЬТАТ АЛГОРИТМА A*")
+            self.print_output("-" * 50)
+            self.print_output(f"Кратчайший путь: {' → '.join(path)}")
+            self.print_output(f"Стоимость пути: {total_cost:.2f}")
+            self.print_output(f"Количество шагов: {step}")
+
+            self.visualize_a_star_path(path, start_node, goal_node, total_cost)
+        else:
+            self.print_output("\nПуть не найден!")
+            self.print_output(f"Вершина '{goal_node}' недостижима из '{start_node}'.")
+
+    def select_vertex_dialog(self, title_text):
+        """диалоговое окно для выбора пути"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(title_text)
+        dialog.geometry("300x250")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        label = ttk.Label(dialog, text=title_text + ":", font=("Arial", 11))
+        label.pack(pady=10)
+
+        combo = ttk.Combobox(dialog, values=sorted(self.graph.nodes()), state="readonly", width=25)
+        combo.pack(pady=10)
+        combo.set("")
+
+        result = {"vertex": None}
+
+        def on_ok():
+            val = combo.get()
+            if not val:
+                messagebox.showwarning("Ошибка", "Выберите вершину!", parent=dialog)
+                return
+            result["vertex"] = val
+            dialog.destroy()
+
+        def on_cancel():
+            dialog.destroy()
+
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(pady=15)
+        ttk.Button(button_frame, text="OK", command=on_ok, width=10).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Отмена", command=on_cancel, width=10).pack(side=tk.LEFT, padx=5)
+
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - dialog.winfo_width()) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
+
+        self.root.wait_window(dialog)
+        return result["vertex"]
+
+    def visualize_a_star_path(self, path, start, goal, cost):
+        step_window = tk.Toplevel(self.root)
+        step_window.title("Алгоритм A* — найденный путь")
+        step_window.geometry("1500x700")
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6), dpi=100)
+
+        pos = {node: self.pos[node] for node in self.pos if node in self.graph}
+
+        # Левая панель: исходный граф
+        self._draw_graph_on_ax(ax1, self.graph, pos, "Исходный граф")
+
+        # Правая панель: выделенный путь
+        self._draw_graph_on_ax(ax2, self.graph, pos, f"Путь A*: {start} → {goal}\nСтоимость: {cost:.2f}")
+
+        # Множество рёбер пути (для ориентированного графа)
+        path_edges = set()
+        for i in range(len(path) - 1):
+            path_edges.add((path[i], path[i + 1]))
+
+        # Перерисовываем рёбра: путь — жирный зелёный
+        for u, v, data in self.graph.edges(data=True):
+            x1, y1 = pos[u]
+            x2, y2 = pos[v]
+            dx, dy = x2 - x1, y2 - y1
+            length = np.hypot(dx, dy)
+            shrink = 1.1 if length > 0 else 0
+            if length > 0:
+                x2_adj = x1 + dx * (length - shrink) / length
+                y2_adj = y1 + dy * (length - shrink) / length
+            else:
+                x2_adj, y2_adj = x2, y2
+
+            color = 'green' if (u, v) in path_edges else 'gray'
+            linewidth = 3.0 if (u, v) in path_edges else 1.5
+            alpha = 1.0 if (u, v) in path_edges else 0.6
+
+            if self.graph.is_directed():
+                ax2.annotate("", xy=(x2_adj, y2_adj), xytext=(x1, y1),
+                             arrowprops=dict(arrowstyle="->", color=color, linewidth=linewidth, alpha=alpha))
+            else:
+                ax2.plot([x1, x2], [y1, y2], color=color, linewidth=linewidth, alpha=alpha)
+
+            # Подпись веса
+            weight = data.get('weight', 1.0)
+            mid_x = (x1 + x2) / 2
+            mid_y = (y1 + y2) / 2
+            offset_x = -0.4 * dy / (length + 1e-6)
+            offset_y = 0.4 * dx / (length + 1e-6)
+            ax2.text(mid_x + offset_x, mid_y + offset_y, f"{weight:.1f}",
+                     fontsize=10, ha='center', va='center',
+                     bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="none", alpha=0.8))
+
+        # Вершины
+        for node, (x, y) in pos.items():
+            color = 'lightgreen' if node in path else 'lightblue'
+            edge_color = 'darkgreen' if node == start else ('red' if node == goal else 'black')
+            circle = plt.Circle((x, y), radius=1.1, color=color, alpha=0.9, ec=edge_color, linewidth=2.5)
+            ax2.add_patch(circle)
+            ax2.text(x, y, node, fontsize=9, fontweight='bold', ha='center', va='center')
+
+        for ax in (ax1, ax2):
+            ax.set_xlim(-12, 12)
+            ax.set_ylim(-12, 12)
+            ax.set_aspect('equal')
+            ax.grid(True, linestyle='--', alpha=0.3)
+
+        plt.tight_layout()
+        canvas = FigureCanvasTkAgg(fig, step_window)
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas.draw()
 
     def dinic_algorithm(self):
         self.print_output("\n" + "=" * 60)
