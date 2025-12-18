@@ -76,13 +76,241 @@ class GraphApp:
                         command=self.set_mode).pack(anchor=tk.W)
         ttk.Radiobutton(mode_frame, text="Удаление рёбер", variable=self.mode_var, value="delete_edge",
                         command=self.set_mode).pack(anchor=tk.W)
+        ttk.Button(parent, text="Загрузить граф 1 пример",
+                   command=self.load_sample_graph).grid(
+            row=20, column=0, sticky="ew", pady=5)
+        ttk.Button(parent, text="Загрузить граф 2 пример",
+                   command=self.load_sample_graph_directed).grid(
+            row=21, column=0, sticky="ew", pady=5)
+        ttk.Button(parent, text="Загрузить граф 3 пример",
+                   command=self.load_sample_graph_5v).grid(
+            row=22, column=0, sticky="ew", pady=5)
+        ttk.Button(parent, text="Загрузить граф 4 пример",
+                   command=self.load_sample_graph_7v_centered).grid(
+            row=23, column=0, sticky="ew", pady=5)
+        ttk.Button(parent, text="Загрузить граф 5 пример",
+                   command=self.load_sample_graph_negative_weights).grid(
+            row=24, column=0, sticky="ew", pady=5)
 
         info_frame = ttk.LabelFrame(parent, text="Информация о графе", padding="10")
-        info_frame.grid(row=6, column=0, sticky="nsew", pady=(20, 0))
+        info_frame.grid(row=4, column=0, sticky="nsew", pady=(20, 0))
         self.info_text = scrolledtext.ScrolledText(info_frame, height=10, width=30)
         self.info_text.pack(fill=tk.BOTH, expand=True)
         self.update_graph_info()
 
+    def load_sample_graph_negative_weights(self):
+        """Загружает ориентированный граф с 4 вершинами и отрицательными весами, как на скрине"""
+        if messagebox.askyesno("Подтверждение", "Вы уверены, что хотите очистить текущий граф и загрузить пример?"):
+            self.clear_graph()
+
+            # Вершины
+            nodes = ['0', '1', '2', '3']
+            for node in nodes:
+                self.graph.add_node(node)
+
+            # Ориентированные рёбра с весами (включая отрицательные)
+            edges = [
+                ('0', '1', -2),
+                ('0', '2', 7),
+                ('0', '3', 5),
+                ('1', '3', 6),
+                ('1', '2', 8),
+                ('3', '0', -1),
+                ('2', '3', -4),
+                ('3', '1', 3),
+                ('2', '1', 3)
+            ]
+
+            for u, v, weight in edges:
+                self.graph.add_edge(u, v, weight=weight)
+
+            # Позиции для визуализации (расположим как на рисунке — квадрат)
+            self.pos = {
+                '0': (-6, 0),  # слева
+                '1': (0, 6),  # сверху
+                '2': (0, -6),  # снизу
+                '3': (6, 0),  # справа
+            }
+
+            self.update_graph_info()
+            self.draw_graph()
+            self.print_output("✅ Граф с 4 вершинами и отрицательными весами загружен!")
+    def load_sample_graph(self):
+        """1 алгориитм"""
+        if messagebox.askyesno("Подтверждение", "Вы уверены, что хотите очистить текущий граф и загрузить пример?"):
+            self.clear_graph()
+
+            # Вершины
+            nodes = [str(i) for i in range(1, 8)]  # '1', '2', ..., '7'
+            for node in nodes:
+                self.graph.add_node(node)
+
+            # Рёбра с весами (неориентированные — добавляем оба направления для надёжности)
+            edges = [
+                ('1', '2', 7),
+                ('1', '3', 3),
+                ('1', '4', 1),
+                ('2', '4', 6),
+                ('2', '5', 3),
+                ('3', '4', 8),
+                ('3', '6', 7),
+                ('4', '5', 5),
+                ('4', '6', 4),
+                ('4', '7', 9),
+                ('5', '7', 9),
+                ('6', '7', 4),
+            ]
+
+            for u, v, weight in edges:
+                self.graph.add_edge(u, v, weight=weight)
+                # Для симметрии (если нужно), можно добавить обратное ребро
+                # Но в нашем случае достаточно одного, так как мы симулируем неориентированный граф
+
+            # Позиции для визуализации (расположим вершины красиво)
+            self.pos = {
+                '1': (-8, 4),
+                '2': (0, 4),
+                '3': (-8, -4),
+                '4': (-4, 0),
+                '5': (4, 0),
+                '6': (-8, -8),
+                '7': (0, -8),
+            }
+
+            self.update_graph_info()
+            self.draw_graph()
+            self.print_output("✅ Готовый граф (7 вершин) загружен!")
+
+    def load_sample_graph_directed(self):
+        """2 алгоритм"""
+        if messagebox.askyesno("Подтверждение",
+                               "Вы уверены, что хотите очистить текущий граф и загрузить ориентированный пример?"):
+            self.clear_graph()
+
+            # Вершины
+            nodes = [str(i) for i in range(1, 9)]  # '1', '2', ..., '8'
+            for node in nodes:
+                self.graph.add_node(node)
+
+            # Ориентированные рёбра (как на рисунке)
+            edges = [
+                ('1', '2'),
+                ('2', '3'),
+                ('2', '5'),
+                ('4', '3'),
+                ('3', '8'),
+                ('8', '4'),
+                ('2', '6'),
+                ('5', '1'),
+                ('5', '6'),
+                ('6', '7'),
+                ('7', '6'),  # Цикл между 6 и 7
+                ('7', '3'),
+                ('7', '8'),
+            ]
+
+            for u, v in edges:
+                self.graph.add_edge(u, v)  # без весов — можно добавить вес=1, если нужно
+
+            # Позиции для визуализации (расположим вершины как на рисунке)
+            self.pos = {
+                '1': (-6, 2),
+                '2': (-2, 2),
+                '3': (2, 2),
+                '4': (6, 2),
+                '5': (-6, -2),
+                '6': (-2, -2),
+                '7': (2, -2),
+                '8': (6, -2),
+            }
+
+            self.update_graph_info()
+            self.draw_graph()
+            self.print_output("✅ Ориентированный граф (8 вершин) загружен!")
+
+    def load_sample_graph_5v(self):
+        """Загружает ориентированный граф с 5 вершинами и весами, как на скрине"""
+        if messagebox.askyesno("Подтверждение", "Вы уверены, что хотите очистить текущий граф и загрузить пример?"):
+            self.clear_graph()
+
+            # Вершины
+            nodes = [str(i) for i in range(1, 6)]  # '1', '2', ..., '5'
+            for node in nodes:
+                self.graph.add_node(node)
+
+            # Ориентированные рёбра с весами
+            edges = [
+                ('1', '2', 2),
+                ('1', '4', 4),
+                ('1', '5', 6),
+                ('2', '3', 2),
+                ('2', '4', 1),
+                ('2', '5', 7),
+                ('3', '5', 1),
+                ('4', '2', 2),
+                ('4', '5', 1),
+                ('5', '3', 2),
+            ]
+
+            for u, v, weight in edges:
+                self.graph.add_edge(u, v, weight=weight)
+
+            # Позиции для визуализации (расположим как на рисунке)
+            self.pos = {
+                '1': (-12, 0),  # слева
+                '2': (-5, 5),  # сверху
+                '3': (5, 5),  # справа сверху
+                '4': (-4, -4),  # снизу
+                '5': (3, -3),  # справа снизу
+            }
+
+            self.update_graph_info()
+            self.draw_graph()
+            self.print_output("✅ Граф с 5 вершинами и весами загружен!")
+
+    def load_sample_graph_7v_centered(self):
+        """Загружает ориентированный граф с 7 вершинами и весами, как на скрине"""
+        if messagebox.askyesno("Подтверждение", "Вы уверены, что хотите очистить текущий граф и загрузить пример?"):
+            self.clear_graph()
+
+            # Вершины
+            nodes = [str(i) for i in range(7)]  # '1', '2', ..., '7'
+            for node in nodes:
+                self.graph.add_node(node)
+
+            # Ориентированные рёбра с весами
+            edges = [
+                ('0', '1', 2),
+                ('0', '3', 6),
+                ('0', '4', 3),
+                ('1', '2', 3),
+                ('1', '3', 4),
+                ('2', '6', 7),
+                ('3', '2', 3),
+                ('3', '5', 2),
+                ('3', '6', 8),
+                ('4', '3', 1),
+                ('4', '5', 1),
+                ('5', '6', 5),
+            ]
+
+            for u, v, weight in edges:
+                self.graph.add_edge(u, v, weight=weight)
+
+            # Позиции для визуализации (расположим как на рисунке)
+            self.pos = {
+                '0': (-6, 0),  # слева
+                '1': (-2, 2),  # сверху
+                '2': (2, 2),  # справа сверху
+                '3': (0, 0),  # центр
+                '4': (-2, -2),  # снизу
+                '5': (2, -2),  # справа снизу
+                '6': (6, 0),  # справа
+            }
+
+            self.update_graph_info()
+            self.draw_graph()
+            self.print_output("✅ Граф с 7 вершинами и центром 4 загружен!")
     def create_graph_panel(self, parent):
         title_label = ttk.Label(parent, text="Визуализация графа", font=("Arial", 14, "bold"))
         title_label.grid(row=0, column=0, pady=(0, 10), sticky="w")
@@ -617,10 +845,10 @@ class GraphApp:
 
         # === Транспонирование ===
         transposed = self.graph.reverse()
-        self.print_output("\n→ Построен транспонированный граф")
+        self.print_output("\n Построен транспонированный граф")
 
         # === Второй DFS ===
-        self.print_output("\n→ Второй DFS (транспонированный граф):")
+        self.print_output("\n Второй DFS (транспонированный граф):")
         visited.clear()
         scc_components = []
 
@@ -641,7 +869,7 @@ class GraphApp:
                 self.print_output(f"Завершена компонента: {sorted(component)}")
 
         # === Вывод результата ===
-        self.print_output(f"\n✅ Найдено компонент: {len(scc_components)}")
+        self.print_output(f"\nНайдено компонент: {len(scc_components)}")
         for i, comp in enumerate(scc_components, 1):
             self.print_output(f"  Компонента {i}: {sorted(comp)}")
 

@@ -132,7 +132,7 @@ class ExapApi:
         #     plt.close(self.fig)
         self.fig, ax = plt.subplots(figsize=(10, 10))
         canvas = FigureCanvasTkAgg(self.fig, master=parent)
-        canvas.get_tk_widget().pack(fill=tk.TOP, expand=True)
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         self.draw_graph(ax, data, title=title)
 
